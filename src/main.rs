@@ -7,7 +7,11 @@ fn main() {
     
     let mut path = PATH_QA;
     let args: Vec<String> = env::args().collect();
-    let query = &args[1]; 
+    let query = if args.len() > 2 {
+        &args[1]
+    } else {
+        "qa"
+    }; 
 
     if query == "prd" {
        path = PATH_PRD; 
