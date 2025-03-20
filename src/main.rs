@@ -7,8 +7,8 @@ use yaml_rust::YamlLoader;
 fn main() {
     let home = env::var("HOME").expect("Could not get HOME environment variable");
     let path: PathBuf = PathBuf::from(format!("{}/.kube/kubeconfig-qa", home));
-    let data = fs::read_to_string(path).expect("No foi possivel ler o arquivo");
-    let docs = YamlLoader::load_from_str(&data).unwrap();
+    let data = fs::read_to_string(path).expect("could not read file");
+    let docs = YamlLoader::load_from_str(&data).expect("yaml format incorrect");
     let doc = &docs[0];
 
     let token = doc["users"][0]["user"]["auth-provider"]["config"]["id-token"]
@@ -16,14 +16,17 @@ fn main() {
         .map(|s| s.to_string())
         .expect("Could not extract id-token");
 
-    if let Err(_) = copy_to_clipboard(&token) {
-        println!(
-            "Failed to copy to clipboard. Here is your token:\n{}",
-            token
-        );
+    match copy_to_clipboard(&token) {
+        Err(_) => {
+            println!(
+                "Failed to copy to clipboard. Here is your token:\n{}",
+                token
+            );
+        }
+        Ok(_) => {
+            println!("Token copied");
+        }
     }
-
-    println!("Token copied");
 }
 
 fn copy_to_clipboard(token: &str) -> Result<(), ()> {
