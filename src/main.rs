@@ -1,31 +1,67 @@
+use arboard::Clipboard;
+use std::io::Write;
+use std::path::PathBuf;
+use std::{env, fs};
 use yaml_rust::YamlLoader;
-use std::{fs, env};
 
 fn main() {
-    const PATH_QA: &str = "/Users/leonardo/.kube/kubeconf-qa";
-    const PATH_PRD: &str = "/Users/leonardo/.kube/kubeconf-prod";
-    
-    let mut path = PATH_QA;
-    let args: Vec<String> = env::args().collect();
-    let query = if args.len() > 2 {
-        &args[1]
-    } else {
-        "qa"
-    }; 
-
-    if query == "prd" {
-       path = PATH_PRD; 
-    }
-    let data = fs::read_to_string(path)
-        .expect("Não foi possivel ler o arquivo"); 
+    let home = env::var("HOME").expect("Could not get HOME environment variable");
+    let path: PathBuf = PathBuf::from(format!("{}/.kube/kubeconfig-qa", home));
+    let data = fs::read_to_string(path).expect("No foi possivel ler o arquivo");
     let docs = YamlLoader::load_from_str(&data).unwrap();
     let doc = &docs[0];
 
-    let data = doc["users"][0]["user"]["auth-provider"]["config"]["id-token"]
-    .as_str()
-    .map(|s| s.to_string())
-    .unwrap();
+    let token = doc["users"][0]["user"]["auth-provider"]["config"]["id-token"]
+        .as_str()
+        .map(|s| s.to_string())
+        .expect("Could not extract id-token");
 
-    cli_clipboard::set_contents(data.to_owned()).unwrap();
-    println!("Token {:?} copied", data);
+    if let Err(_) = copy_to_clipboard(&token) {
+        println!(
+            "Failed to copy to clipboard. Here is your token:\n{}",
+            token
+        );
+    }
+
+    println!("Token copied");
+}
+
+fn copy_to_clipboard(token: &str) -> Result<(), ()> {
+    if let Ok(mut clipboard) = Clipboard::new() {
+        if clipboard.set_text(token.to_owned()).is_ok() {
+            println!("Token copied to clipboard!");
+            return Ok(());
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    copy_to_clipboard_linux(token)
+}
+
+#[cfg(target_os = "linux")]
+fn copy_to_clipboard_linux(token: &str) -> Result<(), ()> {
+    use std::process::Command;
+
+    if cfg!(target_env = "gnu") {
+        let echo = Command::new("echo")
+            .arg(token)
+            .output()
+            .expect("Failed to run echo");
+
+        if echo.status.success() {
+            let mut child = Command::new("clip.exe")
+                .stdin(std::process::Stdio::piped())
+                .spawn()
+                .expect("Failed to copy to Windows clipboard via WSL");
+
+            if let Some(mut stdin) = child.stdin.take() {
+                stdin
+                    .write_all(&echo.stdout)
+                    .expect("Failed to write to clipboard");
+            }
+
+            return Ok(());
+        }
+    }
+    Err(())
 }
