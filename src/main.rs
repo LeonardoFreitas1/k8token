@@ -6,15 +6,21 @@ use yaml_rust::YamlLoader;
 
 fn main() {
     let home = env::var("HOME").expect("Could not get HOME environment variable");
-    let path: PathBuf = PathBuf::from(format!("{}/.kube/kubeconfig-qa", home));
+    let path: PathBuf = PathBuf::from(format!("{}/.kube/config", home));
     let data = fs::read_to_string(path).expect("could not read file");
     let docs = YamlLoader::load_from_str(&data).expect("yaml format incorrect");
     let doc = &docs[0];
 
-    let token = doc["users"][0]["user"]["auth-provider"]["config"]["id-token"]
-        .as_str()
-        .map(|s| s.to_string())
-        .expect("Could not extract id-token");
+    let token = doc["users"]
+        .as_vec()
+        .expect("Expected 'users' to be an array")
+        .iter()
+        .find_map(|user| {
+            user["user"]["auth-provider"]["config"]["id-token"]
+                .as_str()
+                .map(|s| s.to_string())
+        })
+        .expect("Could not find a user with an 'auth-provider' key");
 
     match copy_to_clipboard(&token) {
         Err(_) => {
