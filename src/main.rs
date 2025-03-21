@@ -44,11 +44,11 @@ fn copy_to_clipboard(token: &str) -> Result<(), ()> {
     }
 
     #[cfg(target_os = "linux")]
-    copy_to_clipboard_linux(token)
+    copy_to_clipboard_wsl(token)
 }
 
 #[cfg(target_os = "linux")]
-fn copy_to_clipboard_linux(token: &str) -> Result<(), ()> {
+fn copy_to_clipboard_wsl(token: &str) -> Result<(), ()> {
     use std::process::Command;
 
     if cfg!(target_env = "gnu") {
